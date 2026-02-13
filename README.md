@@ -25,4 +25,4 @@ O desafio **CarnaCode 2026** consiste em implementar todos os 23 padrões de pro
 Minha principal fonte de conhecimento durante o desafio foi o eBook gratuito [Fundamentos dos Design Patterns](https://lp.balta.io/ebook-fundamentos-design-patterns).
 
 ### Portfólio 
-victorcheru.verce.app
+[victorcheru.verce.app](https://victorcheru.vercel.app/)
