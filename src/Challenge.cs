@@ -4,89 +4,78 @@
 // O código atual está muito acoplado e dificulta a adição de novos gateways
 
 using System;
+using static DesignPatternChallenge.PaymentService;
 
 namespace DesignPatternChallenge
 {
     // Contexto: Sistema de pagamentos que precisa trabalhar com diferentes gateways
     // Cada gateway tem sua própria forma de processar, validar e logar transações
-    
+
     public class PaymentService
     {
-        private readonly string _gateway;
+        private readonly IPaymentGatewayFactory _gateway;
 
-        public PaymentService(string gateway)
+        public PaymentService(IPaymentGatewayFactory gateway) => _gateway = gateway;
+
+        public interface IValidator { bool ValidateCard(string cardNumber); }
+        public interface IProcessor { string ProcessTransaction(decimal amount, string cardNumber); }
+        public interface ILogger { void Log(string message); }
+
+        public interface IPaymentGatewayFactory
         {
-            _gateway = gateway;
+            IValidator CreateValidator();
+            IProcessor CreateProcessor();
+            ILogger CreateLogger();
+        }
+
+        public class PagSeguroFactory : IPaymentGatewayFactory
+        {
+            public IValidator CreateValidator() => new PagSeguroValidator();
+            public IProcessor CreateProcessor() => new PagSeguroProcessor();
+            public ILogger CreateLogger() => new PagSeguroLogger();
+        }
+
+        public class MercadoPagoFactory : IPaymentGatewayFactory
+        {
+            public IValidator CreateValidator() => new MercadoPagoValidator();
+            public IProcessor CreateProcessor() => new MercadoPagoProcessor();
+            public ILogger CreateLogger() => new MercadoPagoLogger();
+        }
+
+        public class StripeFactory : IPaymentGatewayFactory
+        {
+            public IValidator CreateValidator() => new StripeValidator();
+            public IProcessor CreateProcessor() => new StripeProcessor();
+            public ILogger CreateLogger() => new StripeLogger();
         }
 
         public void ProcessPayment(decimal amount, string cardNumber)
         {
             // Problema: Switch case gigante para cada gateway
             // Quando adicionar novo gateway, precisa modificar este método
-            switch (_gateway.ToLower())
+            var validador = _gateway.CreateValidator();
+            var processor = _gateway.CreateProcessor();
+            var logger = _gateway.CreateLogger();
+            if (!validador.ValidateCard(cardNumber))
             {
-                case "pagseguro":
-                    var pagSeguroValidator = new PagSeguroValidator();
-                    if (!pagSeguroValidator.ValidateCard(cardNumber))
-                    {
-                        Console.WriteLine("PagSeguro: Cartão inválido");
-                        return;
-                    }
-                    
-                    var pagSeguroProcessor = new PagSeguroProcessor();
-                    var pagSeguroResult = pagSeguroProcessor.ProcessTransaction(amount, cardNumber);
-                    
-                    var pagSeguroLogger = new PagSeguroLogger();
-                    pagSeguroLogger.Log($"Transação processada: {pagSeguroResult}");
-                    break;
-
-                case "mercadopago":
-                    var mercadoPagoValidator = new MercadoPagoValidator();
-                    if (!mercadoPagoValidator.ValidateCard(cardNumber))
-                    {
-                        Console.WriteLine("MercadoPago: Cartão inválido");
-                        return;
-                    }
-                    
-                    var mercadoPagoProcessor = new MercadoPagoProcessor();
-                    var mercadoPagoResult = mercadoPagoProcessor.ProcessTransaction(amount, cardNumber);
-                    
-                    var mercadoPagoLogger = new MercadoPagoLogger();
-                    mercadoPagoLogger.Log($"Transação processada: {mercadoPagoResult}");
-                    break;
-
-                case "stripe":
-                    var stripeValidator = new StripeValidator();
-                    if (!stripeValidator.ValidateCard(cardNumber))
-                    {
-                        Console.WriteLine("Stripe: Cartão inválido");
-                        return;
-                    }
-                    
-                    var stripeProcessor = new StripeProcessor();
-                    var stripeResult = stripeProcessor.ProcessTransaction(amount, cardNumber);
-                    
-                    var stripeLogger = new StripeLogger();
-                    stripeLogger.Log($"Transação processada: {stripeResult}");
-                    break;
-
-                default:
-                    throw new ArgumentException("Gateway não suportado");
+                Console.WriteLine($"{_gateway.GetType().Name.Replace("Factory", "")}: Cartão inválido");
+                return;
             }
+            var result = processor.ProcessTransaction(amount, cardNumber);
+            logger.Log($"Transação processada: {result}");
         }
     }
 
-    // Componentes do PagSeguro
-    public class PagSeguroValidator
+    #region Componentes do PagSeguro
+    public class PagSeguroValidator : IValidator
     {
-        public bool ValidateCard(string cardNumber) 
+        public bool ValidateCard(string cardNumber)
         {
             Console.WriteLine("PagSeguro: Validando cartão...");
             return cardNumber.Length == 16;
         }
     }
-
-    public class PagSeguroProcessor
+    public class PagSeguroProcessor : IProcessor
     {
         public string ProcessTransaction(decimal amount, string cardNumber)
         {
@@ -94,17 +83,17 @@ namespace DesignPatternChallenge
             return $"PAGSEG-{Guid.NewGuid().ToString().Substring(0, 8)}";
         }
     }
-
-    public class PagSeguroLogger
+    public class PagSeguroLogger : ILogger
     {
         public void Log(string message)
         {
             Console.WriteLine($"[PagSeguro Log] {DateTime.Now}: {message}");
         }
     }
+    #endregion
 
-    // Componentes do MercadoPago
-    public class MercadoPagoValidator
+    #region Componentes do MercadoPago
+    public class MercadoPagoValidator : IValidator
     {
         public bool ValidateCard(string cardNumber)
         {
@@ -112,8 +101,7 @@ namespace DesignPatternChallenge
             return cardNumber.Length == 16 && cardNumber.StartsWith("5");
         }
     }
-
-    public class MercadoPagoProcessor
+    public class MercadoPagoProcessor : IProcessor
     {
         public string ProcessTransaction(decimal amount, string cardNumber)
         {
@@ -121,17 +109,17 @@ namespace DesignPatternChallenge
             return $"MP-{Guid.NewGuid().ToString().Substring(0, 8)}";
         }
     }
-
-    public class MercadoPagoLogger
+    public class MercadoPagoLogger : ILogger
     {
         public void Log(string message)
         {
             Console.WriteLine($"[MercadoPago Log] {DateTime.Now}: {message}");
         }
     }
+    #endregion
 
-    // Componentes do Stripe
-    public class StripeValidator
+    #region Componentes do Stripe
+    public class StripeValidator : IValidator
     {
         public bool ValidateCard(string cardNumber)
         {
@@ -139,8 +127,7 @@ namespace DesignPatternChallenge
             return cardNumber.Length == 16 && cardNumber.StartsWith("4");
         }
     }
-
-    public class StripeProcessor
+    public class StripeProcessor : IProcessor
     {
         public string ProcessTransaction(decimal amount, string cardNumber)
         {
@@ -148,14 +135,14 @@ namespace DesignPatternChallenge
             return $"STRIPE-{Guid.NewGuid().ToString().Substring(0, 8)}";
         }
     }
-
-    public class StripeLogger
+    public class StripeLogger : ILogger
     {
         public void Log(string message)
         {
             Console.WriteLine($"[Stripe Log] {DateTime.Now}: {message}");
         }
     }
+    #endregion
 
     class Program
     {
@@ -165,12 +152,13 @@ namespace DesignPatternChallenge
 
             // Problema: Cliente precisa saber qual gateway está usando
             // e o código de processamento está todo acoplado
-            var pagSeguroService = new PaymentService("pagseguro");
-            pagSeguroService.ProcessPayment(150.00m, "1234567890123456");
+
+            var service = new PaymentService(new PaymentService.PagSeguroFactory());
+            service.ProcessPayment(150.00m, "1234567890123456");
 
             Console.WriteLine();
 
-            var mercadoPagoService = new PaymentService("mercadopago");
+            var mercadoPagoService = new PaymentService(new PaymentService.MercadoPagoFactory());
             mercadoPagoService.ProcessPayment(200.00m, "5234567890123456");
 
             Console.WriteLine();
