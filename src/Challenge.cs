@@ -54,13 +54,13 @@ namespace DesignPatternChallenge
             // Problema: Switch case gigante para cada gateway
             // Quando adicionar novo gateway, precisa modificar este método
             var validador = _gateway.CreateValidator();
-            var processor = _gateway.CreateProcessor();
-            var logger = _gateway.CreateLogger();
             if (!validador.ValidateCard(cardNumber))
             {
                 Console.WriteLine($"{_gateway.GetType().Name.Replace("Factory", "")}: Cartão inválido");
                 return;
             }
+            var processor = _gateway.CreateProcessor();
+            var logger = _gateway.CreateLogger();
             var result = processor.ProcessTransaction(amount, cardNumber);
             logger.Log($"Transação processada: {result}");
         }
